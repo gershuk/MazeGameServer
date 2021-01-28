@@ -1,0 +1,215 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "MazeGame.GrpcService";
+
+package MazeGame;
+
+service GrpcGameService 
+{
+  rpc RegisterNewUser (UserData) returns (RegistrationAnswer) {}
+  rpc LogIn(AuthorizationData) returns (AuthorizationAnswer) {}
+  rpc CreateRoom (OwnerRoomConfiguration) returns (RoomTableModificationAnswer) {}
+  rpc ChangeRoomProperties (OwnerRoomConfiguration) returns (RoomTableModificationAnswer) {}
+  rpc DeleteRoom (PlayerAndRoomGuids) returns (DeleteRoomAnswer) {}
+  rpc KickPlayer (PlayerAndRoomGuids) returns (PlayerKickAnswer) {}
+  rpc ConnectToRoom (PlayerAndRoomGuids) returns (stream  RoomPropertiesAnswer) {}
+  rpc DisconnectFromRoom (PlayerAndRoomGuids) returns (DisconnectFromRoomAnswer) {}
+  rpc GetRoomList (Guid) returns(RoomListAnswer) {}
+  rpc GetPlayerState (Guid) returns (PlayerStateAnswer) {}
+  rpc ClosePlayerConnection (Guid) returns (ExitMessage) {}
+}
+
+enum RequestingGuidStatus
+{
+	Exists = 0;
+	NotExist = 1;
+}
+
+enum PlayerState
+{
+	Authorized = 0 ;
+    InGame = 1;
+}
+
+message LoginAndGuid
+{
+	string login = 1;
+	string guid = 2;
+}
+
+message PlayerStateAnswer
+{
+	RequestingGuidStatus requestingGuidStatus = 1;
+	PlayerState playerState = 2;
+}
+
+message Guid 
+{
+  string guid = 1;
+}
+
+message UserData
+{
+	string login = 1;
+	string passwordHash = 2;
+}
+
+message  AuthorizationData 
+{
+	UserData userData = 1;
+	bool clearActiveConnection = 3;
+}
+
+enum AuthorizationStatus 
+{
+	AuthorizationSuccessful = 0;
+	WrongLoginOrPassword = 1;
+	AnotherConnectionActive = 2;
+}
+
+message AuthorizationAnswer
+{
+	Guid playerGuid = 1;
+	AuthorizationStatus status = 2;
+}
+
+enum RegistrationStatus 
+{
+	RegistrationSuccessful = 0;
+	LoginAlreadyExist = 1;
+	BadInput = 2;
+}
+
+message RegistrationAnswer
+{
+	RegistrationStatus status = 1;
+}
+
+enum BotType 
+{
+	Easy = 0;
+	Medium = 1;
+	Hard = 2;
+}
+
+enum RoomStatus
+{
+	Looby = 0;
+	GameStrated = 1;
+	GameEnded = 2;
+}
+
+message RoomProperties
+{
+	string name = 1;
+	string description = 2;
+	string mapName = 3;
+	string password = 4;
+	bool hasPassword = 5;
+	uint32 playersCount = 6;
+	uint32 maxPlayerCount = 7;
+	uint32 botCount = 8;
+	repeated BotType botTypes = 9;
+	repeated string playerNames = 10;
+	string owner = 11;
+	Guid guid = 12;
+	RoomStatus status = 13;
+}
+
+message RoomPropertiesAnswer
+{
+	RequestingGuidStatus requestingGuidStatus = 1;
+	RoomProperties properties = 2;
+}
+
+message OwnerRoomConfiguration
+{
+	Guid ownerGuid = 1;
+	RoomProperties properties = 2;
+}
+
+enum RoomTableModificationStatus
+{
+	RoomTableModificationSuccessful = 0;
+	RoomNameAlreadyExist = 1;
+	WrongMapName = 2;
+	WrongBotsType = 3;
+	WrongBotsCount = 4;
+	LimitExceededForPlayerAndBotsForThisMap = 5;
+	YouNotOwnerOfRoom = 6;	
+}
+
+message RoomTableModificationAnswer
+{
+	RequestingGuidStatus requestingGuidStatus = 1;
+	RoomTableModificationStatus status = 2;
+}
+
+message RoomNewProperties
+{
+	Guid roomGuid = 1;
+	RoomProperties properties = 2;
+}
+
+message PlayerAndRoomGuids
+{
+	Guid playerGuid = 1;
+	Guid roomGuid = 2;
+}
+
+enum PlayerKickStatus
+{
+	PlayerKickSuccessful = 0;
+	YouNotOwnerOfThisRoom = 1;	
+	RoomNotFound = 2;
+	KickPlayerNotFound = 3;
+}
+
+message PlayerKickAnswer
+{
+	RequestingGuidStatus requestingGuidStatus = 1;
+	PlayerKickStatus status = 2;
+}
+
+enum DeleteRoomStatus
+{
+	DeleteRoomSuccessful = 0;
+	CantDeleteNotYourRoom = 1;	
+	CantDeleteRoomNotFound = 2;
+}
+
+message DeleteRoomAnswer
+{
+	RequestingGuidStatus requestingGuidStatus = 1;
+	DeleteRoomStatus status = 2;
+}
+
+enum DisconnectFromRoomState
+{
+	DisconnectSuccessful = 0;
+	CantDisconnectYouNotInThisRoom = 2;	
+	CantDisconnectRoomNotFound = 3;
+}
+
+message DisconnectFromRoomAnswer
+{
+	RequestingGuidStatus requestingGuidStatus = 1;
+	DisconnectFromRoomState status = 2;
+}
+
+message RoomList
+{
+	repeated RoomProperties roomProperties = 1;
+}
+
+message RoomListAnswer
+{
+	RequestingGuidStatus requestingGuidStatus = 1;
+	RoomList list = 2;
+}
+
+message ExitMessage
+{
+	RequestingGuidStatus requestingGuidStatus = 1;
+}
+
