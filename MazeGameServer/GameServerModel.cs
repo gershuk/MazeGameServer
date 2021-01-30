@@ -3,8 +3,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
-using System.Threading;
 using System.Threading.Tasks;
+
+using AsyncExtensions;
 
 namespace MazeGame.Server
 {
@@ -38,9 +39,9 @@ namespace MazeGame.Server
         public Task RegisterNewPlayer (string login, string password);
     }
 
-    public class GameServer : IGameServerModel
+    public class GameServerModel : IGameServerModel
     {
-        private readonly ManualResetEvent _connectionsPoolLocker;
+        private readonly AsyncManualResetEvent _connectionsPoolLocker;
 
         public string DbConnectionString { get; private set; }
 
@@ -50,18 +51,20 @@ namespace MazeGame.Server
 
         public Dictionary<string, Guid> LoginToGuid { get; private set; }
 
-        public GameServer ()
+        public GameServerModel ()
         {
-            _connectionsPoolLocker = new(true);
+            _connectionsPoolLocker = new();
+            _connectionsPoolLocker.Set();
             DbConnectionString = @"Data Source=.\SQLEXPRESS;Initial Catalog=usersdb;Integrated Security=True";
             GameRooms = new();
             PlayerConnections = new();
             LoginToGuid = new();
         }
 
-        public GameServer (int roomsPoolCapacity, int connectionsPoolCapacity, string dbConnectionString)
+        public GameServerModel (string dbConnectionString, int roomsPoolCapacity=1000, int connectionsPoolCapacity=1000)
         {
-            _connectionsPoolLocker = new(true);
+            _connectionsPoolLocker = new();
+            _connectionsPoolLocker.Set();
             DbConnectionString = dbConnectionString;
             GameRooms = new(roomsPoolCapacity);
             PlayerConnections = new(connectionsPoolCapacity);
@@ -85,19 +88,33 @@ namespace MazeGame.Server
             if (real_password.TrimEnd() != password)
                 throw new WrongPasswordException();
 
-            await Task.Run(() => _connectionsPoolLocker.WaitOne());
+            await _connectionsPoolLocker.WaitAsync();
 
             var isExist = LoginToGuid.TryGetValue(login, out var guid);
-            if (!(isExist && PlayerConnections[LoginToGuid[login]].SocketInfo == socketInfo))
+            try
             {
-                if (!killLastConnection && isExist)
-                    throw new LastConnectionStillOpenException();
-                if (isExist)
-                    PlayerConnections.Remove(guid);
+                if (!(isExist && PlayerConnections[LoginToGuid[login]].SocketInfo == socketInfo))
+                {
+                    if (!killLastConnection && isExist)
+                        throw new LastConnectionStillOpenException();
+                    if (isExist)
+                        PlayerConnections.Remove(guid);
+
+                    guid = Guid.NewGuid();
+                    LoginToGuid[login] = guid;
+                    PlayerConnections[guid] = new PlayerConnection(login, socketInfo);
+                }
+            }
+            catch
+            {
+                await _connectionsPoolLocker.WaitAsync();
+                _connectionsPoolLocker.Reset();
 
                 guid = Guid.NewGuid();
                 LoginToGuid[login] = guid;
                 PlayerConnections[guid] = new PlayerConnection(login, socketInfo);
+
+                _connectionsPoolLocker.Set();
             }
 
             return guid;
@@ -122,7 +139,7 @@ namespace MazeGame.Server
 
         public async Task ClosePlayerConnection (Guid guid)
         {
-            await Task.Run(() => _connectionsPoolLocker.WaitOne());
+            await _connectionsPoolLocker.WaitAsync();
 
             if (!PlayerConnections.TryGetValue(guid, out var connection))
                 throw new PlayerGuidNotFoundException();

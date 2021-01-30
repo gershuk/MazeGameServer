@@ -85,18 +85,12 @@ message RegistrationAnswer
 	RegistrationStatus status = 1;
 }
 
-enum BotType 
-{
-	Easy = 0;
-	Medium = 1;
-	Hard = 2;
-}
-
 enum RoomStatus
 {
 	Looby = 0;
 	GameStrated = 1;
 	GameEnded = 2;
+	Deleted = 3;
 }
 
 message RoomProperties
@@ -108,12 +102,11 @@ message RoomProperties
 	bool hasPassword = 5;
 	uint32 playersCount = 6;
 	uint32 maxPlayerCount = 7;
-	uint32 botCount = 8;
-	repeated BotType botTypes = 9;
-	repeated string playerNames = 10;
-	string owner = 11;
-	Guid guid = 12;
-	RoomStatus status = 13;
+	repeated string botTypes = 8;
+	repeated string playerNames = 9;
+	string owner = 10;
+	Guid guid = 11;
+	RoomStatus status = 12;
 }
 
 message RoomPropertiesAnswer
@@ -131,10 +124,10 @@ message OwnerRoomConfiguration
 enum RoomTableModificationStatus
 {
 	RoomTableModificationSuccessful = 0;
-	RoomNameAlreadyExist = 1;
+	//RoomNameAlreadyExist = 1;
 	WrongMapName = 2;
 	WrongBotsType = 3;
-	WrongBotsCount = 4;
+	//WrongBotsCount = 4;
 	LimitExceededForPlayerAndBotsForThisMap = 5;
 	YouNotOwnerOfRoom = 6;	
 }

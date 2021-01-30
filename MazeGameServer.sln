@@ -4,15 +4,20 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 16.0.30907.101
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MazeGameServer", "MazeGameServer\MazeGameServer.csproj", "{C96969A9-9803-447F-B9E4-351649913D52}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B7096F15-0926-45EE-B642-B2682E5AB5F3} = {B7096F15-0926-45EE-B642-B2682E5AB5F3}
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GrpcDescription", "GrpcDescription\GrpcDescription.csproj", "{CC70BC15-4E3D-4469-B19A-595C30340B74}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestClient", "TestClient\TestClient.csproj", "{5C174024-053A-4FB9-B0E4-79613B97AEFD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestClient", "TestClient\TestClient.csproj", "{5C174024-053A-4FB9-B0E4-79613B97AEFD}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E7C0D968-954E-4953-98BA-5E06AF08E4DE}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncExtensions", "AsyncExtensions\AsyncExtensions.csproj", "{B7096F15-0926-45EE-B642-B2682E5AB5F3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,6 +37,10 @@ Global
 		{5C174024-053A-4FB9-B0E4-79613B97AEFD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5C174024-053A-4FB9-B0E4-79613B97AEFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5C174024-053A-4FB9-B0E4-79613B97AEFD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7096F15-0926-45EE-B642-B2682E5AB5F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7096F15-0926-45EE-B642-B2682E5AB5F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7096F15-0926-45EE-B642-B2682E5AB5F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7096F15-0926-45EE-B642-B2682E5AB5F3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

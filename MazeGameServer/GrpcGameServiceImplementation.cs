@@ -77,25 +77,4 @@ namespace MazeGame.Server
 
         public override Task<PlayerStateAnswer> GetPlayerState (GrpcService.Guid request, ServerCallContext context) => base.GetPlayerState(request, context);
     }
-
-    internal class Program
-    {
-        private const int _port = 30051;
-
-        public static void Main (string[] args)
-        {
-            Grpc.Core.Server server = new()
-            {
-                Services = { GrpcGameService.BindService(new GrpcGameServiceImplementation(new GameServer())) },
-                Ports = { new ServerPort("localhost", _port, ServerCredentials.Insecure) }
-            };
-            server.Start();
-
-            Console.WriteLine("Greeter server listening on port " + _port);
-            Console.WriteLine("Press any key to stop the server...");
-            Console.ReadKey();
-
-            server.ShutdownAsync().Wait();
-        }
-    }
 }

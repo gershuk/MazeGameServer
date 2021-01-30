@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AsyncExtensions\AsyncExtensions.csproj" />
     <ProjectReference Include="..\GrpcDescription\GrpcDescription.csproj" />
   </ItemGroup>
 
