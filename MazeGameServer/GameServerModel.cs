@@ -34,6 +34,7 @@ namespace MazeGame.Server
     public class GameServerModel : IGameServerModel
     {
         private readonly AsyncManualResetEvent _connectionsPoolLocker = new();
+        private readonly AsyncManualResetEvent _roomTableLocker = new();
 
         public BotFactory BotFactory { get; init; }
 
@@ -69,6 +70,7 @@ namespace MazeGame.Server
 
             Rooms = new();
             _connectionsPoolLocker.Set();
+            _roomTableLocker.Set();
             DbConnectionString = @"Data Source=.\SQLEXPRESS;Initial Catalog=usersdb;Integrated Security=True";
             GameRooms = new();
             PlayerConnections = new();
@@ -179,6 +181,7 @@ namespace MazeGame.Server
 
         public async Task<AsyncBuffer<LobbyInfo>> ConnectToRoom (Guid playerGuid, Guid roomGuid, string password)
         {
+            await _connectionsPoolLocker.WaitAsync();
             if (!IsConnectionGuidExist(playerGuid, out var connection))
                 throw new PlayerGuidNotFoundException();
 
@@ -191,6 +194,7 @@ namespace MazeGame.Server
 
         public async Task DisconnectFromRoom (Guid guid)
         {
+            await _connectionsPoolLocker.WaitAsync();
             if (!IsConnectionGuidExist(guid, out var connection))
                 throw new PlayerGuidNotFoundException();
 
@@ -210,26 +214,27 @@ namespace MazeGame.Server
             }
         }
 
-        public Task<Guid> CreateRoom (Guid playerGuid, string name, string description, Guid mapGuid, uint maxPlayerCount,
+        public async Task<Guid> CreateRoom (Guid playerGuid, string name, string description, Guid mapGuid, uint maxPlayerCount,
             string password, bool hasPassword, params string[] botTypes)
         {
+            await _connectionsPoolLocker.WaitAsync();
             if (!IsConnectionGuidExist(playerGuid, out var connection))
-                return Task.FromException<Guid> (new PlayerGuidNotFoundException());
+                throw new PlayerGuidNotFoundException();
 
             if (!connection!.CanCreateRoom())
-                return Task.FromException<Guid>(new RoomAlreadyCreatedException());
+                throw new RoomAlreadyCreatedException();
 
             if (!MapStorage.TryGetMap(mapGuid, out var map))
-                return Task.FromException<Guid>(new MapNotFoundException());
+                throw new MapNotFoundException();
 
             if (map!.MaxPlayerCount < maxPlayerCount)
-                return Task.FromException<Guid>(new MaxPlayerMoreThenSpawnerException());
+                throw new MaxPlayerMoreThenSpawnerException();
 
             if (maxPlayerCount == 0)
-                return Task.FromException<Guid>(new UnplayableConfigException());
+                throw new UnplayableConfigException();
 
             if (map!.MaxPlayerCount < botTypes.Length)
-                return Task.FromException<Guid>(new ThereAreMoreBotsThanEmptySlots());
+                throw new ThereAreMoreBotsThanEmptySlots();
 
             List<(string name, Bot bot)> bots = new(botTypes.Length);
 
@@ -241,11 +246,12 @@ namespace MazeGame.Server
 
             Rooms[roomGuid] = room;
             connection.CreatedRoomGuid = roomGuid;
-            return Task.FromResult(roomGuid);
+            return roomGuid;
         }
 
         public async Task<bool> DeleteRoom (Guid playerGuid, Guid roomGuid)
         {
+            await _connectionsPoolLocker.WaitAsync();
             if (!IsConnectionGuidExist(playerGuid, out var connection))
                 throw new PlayerGuidNotFoundException();
 
