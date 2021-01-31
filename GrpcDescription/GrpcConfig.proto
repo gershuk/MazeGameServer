@@ -10,13 +10,19 @@ service GrpcGameService
   rpc LogIn(AuthorizationData) returns (AuthorizationAnswer) {}
   rpc CreateRoom (OwnerRoomConfiguration) returns (RoomTableModificationAnswer) {}
   rpc ChangeRoomProperties (OwnerRoomConfiguration) returns (RoomTableModificationAnswer) {}
+  rpc GetMaps (Empty) returns (GetMapsAnswer) {}
+  rpc GetBots (Empty) returns (GetBotsAnswer) {}
   rpc DeleteRoom (PlayerAndRoomGuids) returns (DeleteRoomAnswer) {}
   rpc KickPlayer (PlayerAndRoomGuids) returns (PlayerKickAnswer) {}
   rpc ConnectToRoom (PlayerAndRoomGuids) returns (stream  RoomPropertiesAnswer) {}
-  rpc DisconnectFromRoom (PlayerAndRoomGuids) returns (DisconnectFromRoomAnswer) {}
+  rpc DisconnectFromRoom (Guid) returns (DisconnectFromRoomAnswer) {}
   rpc GetRoomList (Guid) returns(RoomListAnswer) {}
   rpc GetPlayerState (Guid) returns (PlayerStateAnswer) {}
   rpc ClosePlayerConnection (Guid) returns (ExitMessage) {}
+}
+
+message Empty {
+
 }
 
 enum RequestingGuidStatus
@@ -28,7 +34,9 @@ enum RequestingGuidStatus
 enum PlayerState
 {
 	Authorized = 0 ;
-    InGame = 1;
+    InLobby = 1;
+    InGame = 2;
+	Undefined = 3;
 }
 
 message LoginAndGuid
@@ -41,6 +49,7 @@ message PlayerStateAnswer
 {
 	RequestingGuidStatus requestingGuidStatus = 1;
 	PlayerState playerState = 2;
+	Guid roomGuid = 3;
 }
 
 message Guid 
@@ -87,7 +96,7 @@ message RegistrationAnswer
 
 enum RoomStatus
 {
-	Looby = 0;
+	Lobby = 0;
 	GameStrated = 1;
 	GameEnded = 2;
 	Deleted = 3;
@@ -97,7 +106,7 @@ message RoomProperties
 {
 	string name = 1;
 	string description = 2;
-	string mapName = 3;
+	Guid mapGuid = 3;
 	string password = 4;
 	bool hasPassword = 5;
 	uint32 playersCount = 6;
@@ -109,10 +118,24 @@ message RoomProperties
 	RoomStatus status = 12;
 }
 
+enum RoomPropertiesAnswerStatus
+{
+	 PlayerGuidNotFound = 0;
+     RoomNotExist = 1;
+     ChangeRoom = 2;
+     PlayerAlreadyConnectedToThisRoom =3;
+     OperationCanceled =4;   
+	 CantConnectToStarted =5;
+	 RoomFull = 6;
+	 WrongPassword =8;
+	 Successful = 9;
+}
+
 message RoomPropertiesAnswer
 {
 	RequestingGuidStatus requestingGuidStatus = 1;
 	RoomProperties properties = 2;
+	RoomPropertiesAnswerStatus propertiesstatus = 3;
 }
 
 message OwnerRoomConfiguration
@@ -124,18 +147,22 @@ message OwnerRoomConfiguration
 enum RoomTableModificationStatus
 {
 	RoomTableModificationSuccessful = 0;
-	//RoomNameAlreadyExist = 1;
-	WrongMapName = 2;
+	UnplayableConfig = 1;
+	WrongMapGuid = 2;
 	WrongBotsType = 3;
 	//WrongBotsCount = 4;
-	LimitExceededForPlayerAndBotsForThisMap = 5;
-	YouNotOwnerOfRoom = 6;	
+	LimitExceededForBotsForThisMap = 5;
+	LimitExceededForPlayerForThisMap = 6;
+	YouNotOwnerOfRoom = 7;	
+	MaxPlayerMoreThenSpawnerException = 8;
+	YouAlreadyGotRoom = 9;
 }
 
 message RoomTableModificationAnswer
 {
 	RequestingGuidStatus requestingGuidStatus = 1;
 	RoomTableModificationStatus status = 2;
+	Guid roomGuid = 3;
 }
 
 message RoomNewProperties
@@ -148,6 +175,7 @@ message PlayerAndRoomGuids
 {
 	Guid playerGuid = 1;
 	Guid roomGuid = 2;
+	string password = 3;
 }
 
 enum PlayerKickStatus
@@ -204,5 +232,24 @@ message RoomListAnswer
 message ExitMessage
 {
 	RequestingGuidStatus requestingGuidStatus = 1;
+}
+
+message MapInfo
+{
+	Guid guid = 1;
+	string name = 2;
+	uint32 players = 3;
+	uint32 w = 4;
+	uint32 h = 5;
+}
+
+message GetMapsAnswer
+{
+	repeated MapInfo mapInfos = 1; 
+}
+
+message GetBotsAnswer
+{
+	repeated string types = 1;
 }
 
