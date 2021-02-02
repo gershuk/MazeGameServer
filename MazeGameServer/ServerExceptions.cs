@@ -39,12 +39,15 @@ namespace MazeGame.Server
     public class CantConnectToStartedGameException : Exception { }
     public class PlayerLimitException : Exception { }
     public class WrongPasswordException : Exception { }
-    public class ChangeRoomException : Exception
-    { }
+    public class ChangeRoomException : Exception { }
 
-    public class PlayerNotInRoomException : Exception
-    { }
+    public class PlayerNotInRoomException : Exception { }
 
-    public class RoomAlreadyCreatedException : Exception
-    { }
+    public class RoomAlreadyCreatedException : Exception { }
+    public class PlayerNotFoundInGameExeception : Exception { };
+    public class GameNotStartedException : Exception { };
+    public class WrongTurnException : Exception { };
+    public class TargetGuidNotFoundException : Exception { };
+    public class GameAlreadyStartedException : Exception { };
+    public class ThereIsNoPlayersInRoomException : Exception { };
 }

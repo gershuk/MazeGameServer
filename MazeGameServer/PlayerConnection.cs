@@ -78,5 +78,9 @@ namespace MazeGame.Server
         public bool CanCreateRoom () => CreatedRoomGuid == null;
 
         public bool CanDestroyRoom (Guid roomGuid) => CreatedRoomGuid.Equals(roomGuid);
+
+        public bool CanKick (Guid roomGuid) => CreatedRoomGuid.Equals(roomGuid);
+
+        public bool CanStartGame (Guid roomGuid) => CreatedRoomGuid.Equals(roomGuid);
     }
 }

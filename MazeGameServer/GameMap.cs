@@ -9,7 +9,19 @@ using System.Linq;
 namespace MazeGame.Server
 {
     public sealed record GameMap ([NotNull] string Name, uint MaxPlayerCount, Vector2Int Size, [NotNull] bool[,] Walls, [NotNull] Vector2Int[] Spawns, [NotNull] Vector2Int[] Exits, Guid Guid);
-    public struct Vector2Int { public int X; public int Y; }
+    public struct Vector2Int
+    {
+        public int X;
+        public int Y;
+        public Vector2Int (int x, int y) => (X, Y) = (x, y);
+        public static bool operator == (Vector2Int a, Vector2Int b) => (a.X == b.X) && (a.Y == b.Y);
+        public static bool operator != (Vector2Int a, Vector2Int b) => a == b;
+        public static Vector2Int operator - (Vector2Int a, Vector2Int b) => new((a.X - b.X), (a.Y - b.Y));
+        public static Vector2Int operator + (Vector2Int a, Vector2Int b) => new((a.X + b.X), (a.Y + b.Y));
+
+        public override bool Equals (object? obj) => obj is Vector2Int @int && X == @int.X && Y == @int.Y;
+        public override int GetHashCode () => HashCode.Combine(X, Y);
+    }
 
     public static class MapReader
     {
@@ -33,7 +45,7 @@ namespace MazeGame.Server
                     throw new UnplayableConfigException();
                 for (var j = 0; j < str.Length; ++j)
                 {
-                    walls[j, i] = str[j] == '.' ? false : true;
+                    walls[j, i] = str[j] != '.';
                 }
             }
 

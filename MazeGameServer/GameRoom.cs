@@ -29,21 +29,23 @@ namespace MazeGame.Server
         bool HasPassword,
         uint MaxPlayerCount,
         string OwnerName,
-        Guid MapGuid);
-
-    public record GameInfo (List<(Vector2, int)> Blocks, List<(Vector2, string)> Players);
+        Guid MapGuid,
+        uint TurnsCount,
+        uint TurnDeley);
 
     public class GameRoom
     {
         private readonly Func<Guid, string> _getNameByGuid;
         private readonly ConcurrentDictionary<Guid, AsyncBuffer<LobbyInfo>> _lobbyInfoBuffers;
-        private readonly ConcurrentDictionary<Guid, AsyncBuffer<GameInfo>> _gameInfoBuffers;
+        private MazeGameModel? _mazeGame;
 
         public string Name { get; set; }
         public string Description { get; set; }
         public GameMap Map { get; set; }
         public string? Password { get; set; }
         public uint MaxPlayerCount { get; set; }
+        public uint TurnsCount { get; set; }
+        public uint TurnsDeley { get; set; }
 
         public List<(string name, Bot bot)> Bots { get; set; }
         public Guid OwnerGuid { get; set; }
@@ -66,7 +68,9 @@ namespace MazeGame.Server
                          List<(string name, Bot bot)> bots,
                          Guid ownerGuid,
                          Func<Guid, string> getNameByGuid,
-                         Guid guid)
+                         Guid guid,
+                         uint turnsCount,
+                         uint turnDeley)
         {
             Name = name;
             Description = description;
@@ -76,12 +80,13 @@ namespace MazeGame.Server
             Bots = bots;
             OwnerGuid = ownerGuid;
             Guid = guid;
+            TurnsCount = turnsCount;
 
             _lobbyInfoBuffers = new();
-            _gameInfoBuffers = new();
             PlayerGuids = new();
             Status = RoomStatus.Lobby;
             _getNameByGuid = getNameByGuid;
+            TurnsDeley = turnDeley;
         }
 
         public LobbyInfo GetInfo () => new LobbyInfo(Guid,
@@ -93,27 +98,43 @@ namespace MazeGame.Server
                                                      Password != null,
                                                      MaxPlayerCount,
                                                      _getNameByGuid(OwnerGuid),
-                                                     Map.Guid);
+                                                     Map.Guid,
+                                                     TurnsCount,
+                                                     TurnsDeley);
 
-        public async Task<AsyncBuffer<LobbyInfo>> AddPlayer (Guid playerGuid, string password)
+        public async Task<AsyncBuffer<LobbyInfo>> AddPlayer (Guid playerGuid, string password, bool isReconnect)
         {
-            if (PlayerGuids.Contains(playerGuid))
-                throw new PlayerAlreadyConnectedToThisRoomException();
-
-            if (Status != RoomStatus.Lobby)
-                throw new CantConnectToStartedGameException();
-
-            if (MaxPlayerCount == PlayerGuids.Count)
-                throw new PlayerLimitException();
-
             if (Password != null && Password != password)
                 throw new WrongPasswordException();
 
-            PlayerGuids.Add(playerGuid);
+            if (!isReconnect)
+            {
+                if (PlayerGuids.Contains(playerGuid))
+                    throw new PlayerAlreadyConnectedToThisRoomException();
+
+                if (Status != RoomStatus.Lobby)
+                    throw new CantConnectToStartedGameException();
+
+                if (MaxPlayerCount == PlayerGuids.Count)
+                    throw new PlayerLimitException();
+
+                PlayerGuids.Add(playerGuid);
+            }
+
             AsyncBuffer<LobbyInfo> asyncBuffer = new();
+            if (isReconnect)
+                _lobbyInfoBuffers[playerGuid]?.Dispose();
             _lobbyInfoBuffers[playerGuid] = asyncBuffer;
             await BroadcastLobbyInfo();
             return asyncBuffer;
+        }
+
+        public void SetPlayerDirection (Guid guid, Direction direction, uint turn)
+        {
+            if (Status != RoomStatus.GameStrated)
+                throw new GameNotStartedException();
+
+            _mazeGame.SetPlayerDirection(guid, direction, turn);
         }
 
         public async Task DisconnectPLayer (Guid playerGuid)
@@ -123,34 +144,54 @@ namespace MazeGame.Server
 
             PlayerGuids.Remove(playerGuid);
             _lobbyInfoBuffers.Remove(playerGuid, out var asyncBuffer);
-            await BroadcastLobbyInfo();
-            asyncBuffer!.Dispose();
-        }
-
-        public AsyncBuffer<GameInfo> SpectateGame (Guid playerGuid)
-        {
-            if (_gameInfoBuffers.ContainsKey(playerGuid))
-                throw new PlayerAlreadySpectedThisRoomException();
-
-            _gameInfoBuffers[playerGuid] = new();
-            return _gameInfoBuffers[playerGuid];
+            try
+            {
+                _mazeGame?.DeletePlayer(playerGuid);
+            }
+            finally
+            {
+                await BroadcastLobbyInfo();
+                asyncBuffer!.Dispose();
+            }
         }
 
         public void StopSpectatingGame (Guid playerGuid)
         {
-            if (_gameInfoBuffers.ContainsKey(playerGuid))
-                throw new SpectatingChannelNotFoundException();
+            if (Status != RoomStatus.GameStrated)
+                throw new GameNotStartedException();
 
-            _gameInfoBuffers.Remove(playerGuid, out var asyncBuffer);
-            asyncBuffer!.Dispose();
+            _mazeGame.DeleteSpectator(playerGuid);
         }
 
         public async Task Destroy ()
         {
+            _mazeGame?.Dispose();
+            Status = RoomStatus.GameEnded;
             await BroadcastLobbyInfo();
-            Status = RoomStatus.Destroyed;
             foreach (var buffer in _lobbyInfoBuffers)
                 buffer.Value.Dispose();
+            Status = RoomStatus.Destroyed;
+        }
+
+        public async Task StartGame ()
+        {
+            if (Status != RoomStatus.Lobby)
+                throw new GameAlreadyStartedException();
+            if (PlayerGuids.Count == 0)
+                throw new ThereIsNoPlayersInRoomException();
+
+            Status = RoomStatus.GameStrated;
+            _mazeGame = new MazeGameModel(Map, PlayerGuids.Select(p => (p, _getNameByGuid(p))).ToList(), Bots, TurnsCount, TurnsDeley);
+            await _mazeGame.StartGame();
+        }
+
+        public async Task<AsyncBuffer<GameInfo>> GetVisualData (Guid playerGuid, bool isReconnect)
+        {
+            return Status == RoomStatus.GameStrated
+                ? PlayerGuids.Contains(playerGuid)
+                ? await _mazeGame.GetPlayerData(playerGuid)
+                : await _mazeGame.AddSpectator(playerGuid, isReconnect)
+                : throw new GameNotStartedException();
         }
     }
 }

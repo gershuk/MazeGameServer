@@ -1,13 +1,11 @@
 ﻿#nullable enable
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 
 using Grpc.Core;
-using Grpc.Core.Utils;
 
 using MazeGame.GrpcService;
 
@@ -18,6 +16,25 @@ namespace MazeGame.Server
         private readonly IGameServerModel _gameServerModel;
 
         public GrpcGameServiceImplementation ([NotNull] IGameServerModel gameServerModel) => _gameServerModel = gameServerModel ?? throw new System.ArgumentNullException(nameof(gameServerModel));
+
+        private Direction GrpcDirectionToServerDirection (DirectionState directionState) => directionState switch
+        {
+            DirectionState.None => Direction.None,
+            DirectionState.Up => Direction.Up,
+            DirectionState.Down => Direction.Down,
+            DirectionState.Left => Direction.Left,
+            DirectionState.Right => Direction.Right,
+        };
+
+        private GrpcService.BlockType BlockTypeToGrpcServiceBlockType (MazeGame.Server.BlockType blockType) => blockType switch
+        {
+            BlockType.Undefined => GrpcService.BlockType.BlockUndefined,
+            BlockType.Wall => GrpcService.BlockType.BlockWall,
+            BlockType.Empty => GrpcService.BlockType.BlockEmpty,
+            BlockType.Exit => GrpcService.BlockType.BlockExit,
+            _ => throw new NotImplementedException(),
+        };
+
 
         private ExitMessage CreateExitAnswer (Task task) => new ExitMessage
         {
@@ -36,7 +53,7 @@ namespace MazeGame.Server
         {
             Status = task.Exception switch
             {
-                null => RegistrationStatus.RegistrationSuccessful,
+                null => RegistrationStatus.RegistrationSuccessfull,
                 _ => task.Exception.InnerException switch
                 {
                     BadRegistrationDataException => RegistrationStatus.BadInput,
@@ -51,7 +68,7 @@ namespace MazeGame.Server
             PlayerGuid = new GrpcService.Guid() { Guid_ = task.Exception == null ? task.Result.ToString("D") : string.Empty },
             Status = task.Exception switch
             {
-                null => AuthorizationStatus.AuthorizationSuccessful,
+                null => AuthorizationStatus.AuthorizationSuccessfull,
                 _ => task.Exception.InnerException switch
                 {
                     LoginNotExistException or WrongPasswordException => AuthorizationStatus.WrongLoginOrPassword,
@@ -66,7 +83,7 @@ namespace MazeGame.Server
             RequestingGuidStatus = task.Exception?.InnerException is PlayerGuidNotFoundException ? RequestingGuidStatus.NotExist : RequestingGuidStatus.Exists,
             Status = task.Exception switch
             {
-                null => RoomTableModificationStatus.RoomTableModificationSuccessful,
+                null => RoomTableModificationStatus.RoomTableModificationSuccessfull,
                 _ => task.Exception.InnerException switch
                 {
                     RoomAlreadyCreatedException => RoomTableModificationStatus.YouAlreadyGotRoom,
@@ -104,10 +121,10 @@ namespace MazeGame.Server
         private DeleteRoomAnswer CreateDeleteRoomAnswer (Task<bool> task) => new DeleteRoomAnswer
         {
             RequestingGuidStatus = task.Exception?.InnerException is PlayerGuidNotFoundException ? RequestingGuidStatus.NotExist : RequestingGuidStatus.Exists,
-            Status = task.Exception?.InnerException is null ? DeleteRoomStatus.DeleteRoomSuccessful :
+            Status = task.Exception?.InnerException is null ? DeleteRoomStatus.DeleteRoomSuccessfull :
             task.Exception?.InnerException switch
             {
-                null => task.Result ? DeleteRoomStatus.DeleteRoomSuccessful : DeleteRoomStatus.CantDeleteRoomNotFound,
+                null => task.Result ? DeleteRoomStatus.DeleteRoomSuccessfull : DeleteRoomStatus.CantDeleteRoomNotFound,
                 NotYourRoomException => DeleteRoomStatus.CantDeleteNotYourRoom,
                 _ => throw task.Exception.InnerException,
             }
@@ -116,7 +133,71 @@ namespace MazeGame.Server
         private DisconnectFromRoomAnswer CreateDisconnectFromRoomAnswer (Task task) => new DisconnectFromRoomAnswer
         {
             RequestingGuidStatus = task.Exception?.InnerException is PlayerGuidNotFoundException ? RequestingGuidStatus.NotExist : RequestingGuidStatus.Exists,
-            Status = task.Exception == null ? DisconnectFromRoomState.DisconnectSuccessful : DisconnectFromRoomState.CantDisconnectRoomNotFound,
+            Status = task.Exception == null ? DisconnectFromRoomState.DisconnectSuccessfull : DisconnectFromRoomState.CantDisconnectRoomNotFound,
+        };
+
+        private PlayerKickAnswer CreatePlayerKickAnswer (Task task) => new PlayerKickAnswer
+        {
+            RequestingGuidStatus = task.Exception?.InnerException is PlayerGuidNotFoundException ? RequestingGuidStatus.NotExist : RequestingGuidStatus.Exists,
+            Status = task.Exception switch
+            {
+                null => PlayerKickStatus.PlayerKickSuccessfull,
+                _ => task.Exception.InnerException switch
+                {
+                    NotYourRoomException => PlayerKickStatus.YouNotOwnerOfThisRoom,
+                    TargetGuidNotFoundException or PlayerNotInRoomException => PlayerKickStatus.KickPlayerNotFound,
+                    RoomNotExistException => PlayerKickStatus.RoomNotFound,
+                    _ => throw task.Exception.InnerException,
+                }
+            },
+        };
+
+        private StartGameAnswer CreateStartGameAnswer (Task task) => new StartGameAnswer
+        {
+            RequestingGuidStatus = task.Exception?.InnerException is PlayerGuidNotFoundException ? RequestingGuidStatus.NotExist : RequestingGuidStatus.Exists,
+            GameStatus = task.Exception switch
+            {
+                null => StartGameStatus.StartSuccessfull,
+                _ => task.Exception.InnerException switch
+                {
+                    NotYourRoomException => StartGameStatus.NotYourRoom,
+                    RoomNotExistException => StartGameStatus.RoomNotFoundToStartGame,
+                    GameAlreadyStartedException => StartGameStatus.GameAlreadyStarted,
+                    ThereIsNoPlayersInRoomException => StartGameStatus.NoPlayers,
+                    _ => throw task.Exception.InnerException,
+                }
+            },
+        };
+
+        private SetDirectionAnswer CreateSetDirectionAnswer (Task task) => new SetDirectionAnswer
+        {
+            RequestingGuidStatus = task.Exception?.InnerException is PlayerGuidNotFoundException ? RequestingGuidStatus.NotExist : RequestingGuidStatus.Exists,
+            SetDirectionState = task.Exception switch
+            {
+                null => SetDirectionState.SuccessfullSetDir,
+                _ => task.Exception.InnerException switch
+                {
+                    RoomNotExistException => SetDirectionState.RoomNotFoundToSetDir,
+                    GameNotStartedException => SetDirectionState.GameNotStrartedToSetDir,
+                    WrongTurnException => SetDirectionState.WrongTurnSet,
+                    PlayerNotFoundInGameExeception => SetDirectionState.PlayerNotFoundToSetDir
+                }
+            }
+        };
+
+        private StopSpectateGameAnswer CreateStopSpectateGameAnswer (Task task) => new StopSpectateGameAnswer
+        {
+            RequestingGuidStatus = task.Exception?.InnerException is PlayerGuidNotFoundException ? RequestingGuidStatus.NotExist : RequestingGuidStatus.Exists,
+            StopSpectateGameState = task.Exception switch
+            {
+                null => StopSpectateGameState.SuccessfullStopSpectateGame,
+                _ => task.Exception.InnerException switch
+                {
+                    RoomNotExistException => StopSpectateGameState.CantStopSpectateRoomNotExist,
+                    GameNotStartedException => StopSpectateGameState.CantStopSpectateGameNotStarted,
+                    SpectatingChannelNotFoundException => StopSpectateGameState.CantStopSpectateSpectatingChannelNotFound,
+                }
+            }
         };
 
         public override async Task<AuthorizationAnswer> LogIn (AuthorizationData request, ServerCallContext context) =>
@@ -136,6 +217,8 @@ namespace MazeGame.Server
                                               request.Properties.MaxPlayerCount,
                                               request.Properties.Password,
                                               request.Properties.HasPassword,
+                                              request.Properties.TurnsCount,
+                                              request.Properties.TurnDeley,
                                               request.Properties.BotTypes.ToArray()).ContinueWith(CreateRoomTableModificationAnswer);
 
         public override async Task<DeleteRoomAnswer> DeleteRoom (PlayerAndRoomGuids request, ServerCallContext context) =>
@@ -158,7 +241,7 @@ namespace MazeGame.Server
                         var ans = new RoomPropertiesAnswer()
                         {
                             RequestingGuidStatus = RequestingGuidStatus.Exists,
-                            Propertiesstatus = RoomPropertiesAnswerStatus.Successful,
+                            Propertiesstatus = RoomPropertiesAnswerStatus.Successfull,
                             Properties = new RoomProperties()
                             {
                                 Guid = new() { Guid_ = info.Guid.ToString("D") },
@@ -191,71 +274,56 @@ namespace MazeGame.Server
                 }
                 catch (OperationCanceledException)
                 {
-                    await responseStream.WriteAllAsync(new List<RoomPropertiesAnswer>()
-                        {
-                            new RoomPropertiesAnswer()
-                            {
-                                RequestingGuidStatus = RequestingGuidStatus.NotExist,
-                                Propertiesstatus = RoomPropertiesAnswerStatus.OperationCanceled
-                            }
-                        });
+                    await responseStream.WriteAsync(new RoomPropertiesAnswer()
+                    {
+                        RequestingGuidStatus = RequestingGuidStatus.Exists,
+                        Propertiesstatus = RoomPropertiesAnswerStatus.OperationCanceled
+                    });
                 }
             }
             catch (PlayerGuidNotFoundException)
             {
-                await responseStream.WriteAllAsync(new List<RoomPropertiesAnswer>() { new RoomPropertiesAnswer() { RequestingGuidStatus = RequestingGuidStatus.NotExist } });
+                await responseStream.WriteAsync(new RoomPropertiesAnswer() { RequestingGuidStatus = RequestingGuidStatus.NotExist });
             }
             catch (WrongPasswordException)
             {
-                new RoomPropertiesAnswer()
+                await responseStream.WriteAsync(new RoomPropertiesAnswer()
                 {
                     RequestingGuidStatus = RequestingGuidStatus.Exists,
                     Propertiesstatus = RoomPropertiesAnswerStatus.WrongPassword
-                };
+                });
             }
             catch (RoomNotExistException)
             {
 
-                await responseStream.WriteAllAsync(new List<RoomPropertiesAnswer>()
+                await responseStream.WriteAsync(new RoomPropertiesAnswer()
                 {
-                    new RoomPropertiesAnswer()
-                    {
-                        RequestingGuidStatus = RequestingGuidStatus.Exists,
-                        Propertiesstatus = RoomPropertiesAnswerStatus.RoomNotExist
-                    }
+                    RequestingGuidStatus = RequestingGuidStatus.Exists,
+                    Propertiesstatus = RoomPropertiesAnswerStatus.RoomNotExist
                 });
             }
             catch (ChangeRoomException)
             {
-                await responseStream.WriteAllAsync(new List<RoomPropertiesAnswer>()
+                await responseStream.WriteAsync(new RoomPropertiesAnswer()
                 {
-                    new RoomPropertiesAnswer()
-                    {
-                        RequestingGuidStatus = RequestingGuidStatus.Exists,
-                        Propertiesstatus = RoomPropertiesAnswerStatus.ChangeRoom
-                    }
+                    RequestingGuidStatus = RequestingGuidStatus.Exists,
+                    Propertiesstatus = RoomPropertiesAnswerStatus.ChangeRoom
                 });
             }
             catch (PlayerAlreadyConnectedToThisRoomException)
             {
-                await responseStream.WriteAllAsync(new List<RoomPropertiesAnswer>()
+                await responseStream.WriteAsync(new RoomPropertiesAnswer()
                 {
-                    new RoomPropertiesAnswer()
-                    {
-                        RequestingGuidStatus = RequestingGuidStatus.Exists,
-                        Propertiesstatus = RoomPropertiesAnswerStatus.PlayerAlreadyConnectedToThisRoom
-                    }
+                    RequestingGuidStatus = RequestingGuidStatus.Exists,
+                    Propertiesstatus = RoomPropertiesAnswerStatus.PlayerAlreadyConnectedToThisRoom
                 });
             }
             catch (CantConnectToStartedGameException)
             {
-                await responseStream.WriteAllAsync(new List<RoomPropertiesAnswer>()
+                await responseStream.WriteAsync(new RoomPropertiesAnswer()
                 {
-                    new RoomPropertiesAnswer()
-                    {
-                        RequestingGuidStatus = RequestingGuidStatus.Exists,
-                        Propertiesstatus = RoomPropertiesAnswerStatus.CantConnectToStarted
-                    }
+                    RequestingGuidStatus = RequestingGuidStatus.Exists,
+                    Propertiesstatus = RoomPropertiesAnswerStatus.CantConnectToStarted
                 });
             }
             catch (InvalidOperationException) { /*ignore*/}
@@ -263,7 +331,7 @@ namespace MazeGame.Server
         }
 
         public override async Task<DisconnectFromRoomAnswer> DisconnectFromRoom (GrpcService.Guid request, ServerCallContext context) =>
-            await Task.Run(() => _gameServerModel.DisconnectFromRoom(new System.Guid(request.Guid_))).ContinueWith(CreateDisconnectFromRoomAnswer);
+            await Task.Run(() => _gameServerModel.DisconnectFromRoom(new System.Guid(request.Guid_), true)).ContinueWith(CreateDisconnectFromRoomAnswer);
 
         public override Task<GetMapsAnswer> GetMaps (Empty request, ServerCallContext context)
         {
@@ -280,5 +348,137 @@ namespace MazeGame.Server
                 ans.Types_.Add(type);
             return Task.FromResult(ans);
         }
+
+        public override Task<RoomListAnswer> GetRoomList (Empty request, ServerCallContext context)
+        {
+            RoomListAnswer ans = new();
+            foreach (var roomInfo in _gameServerModel.GetRoomList())
+            {
+                ans.RoomProperties.Add(new RoomProperties()
+                {
+                    Guid = new() { Guid_ = roomInfo.Guid.ToString("D") },
+                    Name = roomInfo.RoomName,
+                    Description = roomInfo.Description,
+                    Status = roomInfo.RoomStatus switch
+                    {
+                        RoomStatus.Lobby => GrpcService.RoomStatus.Lobby,
+                        RoomStatus.GameStrated => GrpcService.RoomStatus.GameStrated,
+                        RoomStatus.GameEnded => GrpcService.RoomStatus.GameEnded,
+                        RoomStatus.Destroyed => GrpcService.RoomStatus.Deleted,
+                        _ => throw new NotImplementedException(),
+                    },
+                    PlayersCount = (uint) roomInfo.PlayerNames.Count,
+                    HasPassword = roomInfo.HasPassword,
+                    MaxPlayerCount = roomInfo.MaxPlayerCount,
+                    Owner = roomInfo.OwnerName,
+                    MapGuid = new() { Guid_ = roomInfo.Guid.ToString("D") },
+                });
+            }
+
+            return Task.FromResult(ans);
+        }
+
+        public override async Task<PlayerKickAnswer> KickPlayer (KickMessage request, ServerCallContext context) =>
+            await _gameServerModel.KickPlayer(new System.Guid(request.OwnerData.PlayerGuid.Guid_),
+                                              new System.Guid(request.OwnerData.RoomGuid.Guid_),
+                                              request.TargetLogin).ContinueWith(CreatePlayerKickAnswer);
+
+        public override async Task<StartGameAnswer> StartGame (PlayerAndRoomGuids request, ServerCallContext context) =>
+            await _gameServerModel.StartGame(new System.Guid(request.PlayerGuid.Guid_), new System.Guid(request.RoomGuid.Guid_)).ContinueWith(CreateStartGameAnswer);
+
+        public override async Task<SetDirectionAnswer> SetDirection (PlayerDirection request, ServerCallContext context) =>
+            await _gameServerModel.SetPlayerDirection(new System.Guid(request.PlayerAndRoomGuids.PlayerGuid.Guid_),
+                                                      new System.Guid(request.PlayerAndRoomGuids.RoomGuid.Guid_),
+                                                      GrpcDirectionToServerDirection(request.DirectionState),
+                                                      request.Turn).ContinueWith(CreateSetDirectionAnswer);
+        public override async Task SpectateGame (PlayerAndRoomGuids request, IServerStreamWriter<SpectateGameAnswer> responseStream, ServerCallContext context)
+        {
+            try
+            {
+                var buffer = await _gameServerModel.GetVisualData(new System.Guid(request.PlayerGuid.Guid_), new System.Guid(request.RoomGuid.Guid_), true);
+                try
+                {
+                    while (true)
+                    {
+                        var info = await buffer.AsyncRead();
+                        SpectateData spectateData = new()
+                        {
+                            Pos = new() { X = info.Position.X, Y = info.Position.Y },
+                            Status = info.AvatarGameState switch
+                            {
+                                AvatarGameState.Running => SpectateGameStatus.AvatarRunnig,
+                                AvatarGameState.Win => SpectateGameStatus.AvatarWin,
+                                AvatarGameState.Lose => SpectateGameStatus.AvatarLose,
+                                _ => throw new NotImplementedException(),
+                            },
+                            Turn = info.Turn,
+                        };
+
+                        spectateData.PlayerInfos.AddRange(info.Players.Select(p => new PlayerInfo() { Name = p.name, Pos = new() { X = p.position.X, Y = p.position.Y } }));
+                        spectateData.BlockInfos.AddRange(info.Blocks.Select(b => new BlockInfo() { BlockType = BlockTypeToGrpcServiceBlockType(b.type), Pos = new() { X = b.position.X, Y = b.position.Y } }));
+
+                        var ans = new SpectateGameAnswer()
+                        {
+                            RequestingGuidStatus = RequestingGuidStatus.Exists,
+                            SpectateGameStatus = SpectateGameStatus.OpenSpectateChannel,
+                            SpectateData = spectateData,
+                        };
+
+
+                        await responseStream.WriteAsync(ans);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    await responseStream.WriteAsync(new SpectateGameAnswer()
+                    {
+                        RequestingGuidStatus = RequestingGuidStatus.Exists,
+                        SpectateGameStatus = SpectateGameStatus.ClosedSpectateChannel,
+                    });
+                }
+            }
+            catch (PlayerGuidNotFoundException)
+            {
+                await responseStream.WriteAsync(new SpectateGameAnswer() { RequestingGuidStatus = RequestingGuidStatus.NotExist });
+            }
+            catch (GameNotStartedException)
+            {
+                await responseStream.WriteAsync(new SpectateGameAnswer()
+                {
+                    RequestingGuidStatus = RequestingGuidStatus.Exists,
+                    SpectateGameStatus = SpectateGameStatus.GameNotStartedNothingSpectate
+                });
+            }
+            catch (RoomNotExistException)
+            {
+
+                await responseStream.WriteAsync(new SpectateGameAnswer()
+                {
+                    RequestingGuidStatus = RequestingGuidStatus.Exists,
+                    SpectateGameStatus = SpectateGameStatus.WrongRoomToSpectate,
+                });
+            }
+            catch (PlayerNotFoundInGameExeception)
+            {
+                await responseStream.WriteAsync(new SpectateGameAnswer()
+                {
+                    RequestingGuidStatus = RequestingGuidStatus.Exists,
+                    SpectateGameStatus = SpectateGameStatus.PlayerNotFoundToSpectete,
+                });
+            }
+            catch (PlayerAlreadySpectedThisRoomException)
+            {
+                await responseStream.WriteAsync(new SpectateGameAnswer()
+                {
+                    RequestingGuidStatus = RequestingGuidStatus.Exists,
+                    SpectateGameStatus = SpectateGameStatus.PlayerAlreadySpectedThisRoom,
+                });
+            }
+            catch (InvalidOperationException) { /*ignore*/}
+            catch (Exception e) { Console.WriteLine(e.Message); }
+        }
+
+        public override async Task<StopSpectateGameAnswer> StopSpectateGame (PlayerAndRoomGuids request, ServerCallContext context) =>
+            await _gameServerModel.StopSpectating(new System.Guid(request.PlayerGuid.Guid_), new System.Guid(request.RoomGuid.Guid_)).ContinueWith(CreateStopSpectateGameAnswer);
     }
 }
