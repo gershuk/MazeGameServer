@@ -49,5 +49,5 @@ namespace MazeGame.Server
     public class WrongTurnException : Exception { };
     public class TargetGuidNotFoundException : Exception { };
     public class GameAlreadyStartedException : Exception { };
-    public class ThereIsNoPlayersInRoomException : Exception { };
+    public class ThereIsNoPlayersOrBotsInRoomException : Exception { };
 }

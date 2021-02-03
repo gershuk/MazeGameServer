@@ -45,8 +45,8 @@ namespace AsyncExtensions
             GC.SuppressFinalize(this);
         }
 
-        public async Task<bool> AsyncWrite (T item) => await _buffer.SendAsync(item, _token);
+        public async Task<bool> AsyncWrite (T item) => _disposed ? await Task.FromResult(false) :await _buffer.SendAsync(item, _token);
 
-        public async Task<T> AsyncRead () => await _buffer.ReceiveAsync(_token);
+        public async Task<T> AsyncRead () => _disposed ? await Task.FromResult<T>(default) :await _buffer.ReceiveAsync(_token);
     }
 }

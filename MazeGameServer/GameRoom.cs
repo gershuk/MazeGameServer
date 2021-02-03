@@ -115,7 +115,7 @@ namespace MazeGame.Server
                 if (Status != RoomStatus.Lobby)
                     throw new CantConnectToStartedGameException();
 
-                if (MaxPlayerCount == PlayerGuids.Count)
+                if (MaxPlayerCount == PlayerGuids.Count + Bots.Count)
                     throw new PlayerLimitException();
 
                 PlayerGuids.Add(playerGuid);
@@ -173,15 +173,16 @@ namespace MazeGame.Server
             Status = RoomStatus.Destroyed;
         }
 
-        public async Task StartGame ()
+        public async Task StartGame (Action deleteRoom, Action<Guid> deletePlayer)
         {
             if (Status != RoomStatus.Lobby)
                 throw new GameAlreadyStartedException();
-            if (PlayerGuids.Count == 0)
-                throw new ThereIsNoPlayersInRoomException();
+            if (PlayerGuids.Count + Bots.Count == 0)
+                throw new ThereIsNoPlayersOrBotsInRoomException();
 
             Status = RoomStatus.GameStrated;
-            _mazeGame = new MazeGameModel(Map, PlayerGuids.Select(p => (p, _getNameByGuid(p))).ToList(), Bots, TurnsCount, TurnsDeley);
+            _mazeGame = new MazeGameModel(deleteRoom, deletePlayer, Map, PlayerGuids.Select(p => (p, _getNameByGuid(p))).ToList(), Bots, TurnsCount, TurnsDeley);
+            await BroadcastLobbyInfo();
             await _mazeGame.StartGame();
         }
 

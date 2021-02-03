@@ -10,7 +10,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MazeGameServer", "MazeGameS
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GrpcDescription", "GrpcDescription\GrpcDescription.csproj", "{CC70BC15-4E3D-4469-B19A-595C30340B74}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestClient", "TestClient\TestClient.csproj", "{5C174024-053A-4FB9-B0E4-79613B97AEFD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleClient", "ConsoleClient\ConsoleClient.csproj", "{5C174024-053A-4FB9-B0E4-79613B97AEFD}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E7C0D968-954E-4953-98BA-5E06AF08E4DE}"
 	ProjectSection(SolutionItems) = preProject

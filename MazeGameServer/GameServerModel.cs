@@ -7,6 +7,8 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
+
 
 using AsyncExtensions;
 
@@ -28,7 +30,7 @@ namespace MazeGame.Server
         Task<Guid> CreateRoom (Guid playerGuid, string name, string description, Guid mapGuid, uint maxPlayerCount, string password, bool hasPassword, uint turnsCount, uint turnsDeley, params string[] botTypes);
         Task<bool> DeleteRoom (Guid playerGuid, Guid roomGuid);
         Task DisconnectFromRoom (Guid guid, bool isSelf);
-        Task<(Guid? roomGuid, PlayerState playerState)> GetPlayerState (Guid playerGuid);
+        Task<(Guid? createdRoomGuid, Guid? connectToRoomGuid, PlayerState playerState)> GetPlayerState (Guid playerGuid);
         List<LobbyInfo> GetRoomList ();
         Task<AsyncBuffer<GameInfo>> GetVisualData (Guid playerGuid, Guid roomGuid, bool isReconnect);
         Task KickPlayer (Guid playerGuid, Guid room, string targetLogin);
@@ -42,6 +44,7 @@ namespace MazeGame.Server
     {
         private readonly AsyncManualResetEvent _connectionsPoolLocker = new();
         private readonly AsyncManualResetEvent _roomTableLocker = new();
+        private readonly Regex _loginCheckRegex = new(@"[^\w]+", RegexOptions.Compiled);
 
         public BotFactory BotFactory { get; init; }
 
@@ -83,7 +86,7 @@ namespace MazeGame.Server
             PlayerConnections = new();
             LoginToGuid = new();
 
-            BotFactory = new BotFactory(("SimpleBot", () => new SimpleBot()));
+            BotFactory = new BotFactory(("AStarBot", () => new AStrarBot()));
         }
 
         private bool IsConnectionGuidExist (Guid guid, out PlayerConnection? connection) => PlayerConnections.TryGetValue(guid, out connection);
@@ -102,6 +105,10 @@ namespace MazeGame.Server
                 throw new LoginNotExistException();
 
             await reader.ReadAsync();
+
+            if (reader.GetString(0).TrimEnd() != login)
+                throw new LoginNotExistException();
+
             var real_password = reader.GetString(1);
 
             if (real_password.TrimEnd() != password)
@@ -144,6 +151,10 @@ namespace MazeGame.Server
 
         public async Task RegisterNewPlayer (string login, string password)
         {
+
+            if (_loginCheckRegex.Matches(login).Count > 0)
+                throw new BadRegistrationDataException();
+
             using SqlConnection connection = new(DbConnectionString);
             await connection.OpenAsync();
             using SqlCommand readCommand = new($"SELECT * FROM UsersData WHERE Login = '{login}'", connection);
@@ -197,10 +208,11 @@ namespace MazeGame.Server
 
             var isReconnect = connection!.CurrentGameRoomGuid == roomGuid;
 
+            var ans = await gameRoom.AddPlayer(playerGuid, password, isReconnect);
+
             if (!isReconnect)
                 connection.ConnectToRoom(roomGuid);
-
-            return await gameRoom.AddPlayer(playerGuid, password, isReconnect);
+            return ans;
         }
 
         public async Task DisconnectFromRoom (Guid guid, bool isSelf)
@@ -250,13 +262,13 @@ namespace MazeGame.Server
             if (maxPlayerCount == 0 && turnsDeley < 100)
                 throw new UnplayableConfigException();
 
-            if (map!.MaxPlayerCount < botTypes.Length)
+            if (maxPlayerCount < botTypes.Length)
                 throw new ThereAreMoreBotsThanEmptySlots();
 
             List<(string name, Bot bot)> bots = new(botTypes.Length);
 
             foreach (var botType in botTypes)
-                bots.Add((name, BotFactory.CreatBot(botType)));
+                bots.Add((botType, BotFactory.CreatBot(botType)));
 
             var roomGuid = Guid.NewGuid();
             GameRoom room = new(name, description, map, hasPassword ? password : null, maxPlayerCount, bots, playerGuid, (guid) => PlayerConnections[guid].Login, roomGuid, turnsCount, turnsDeley);
@@ -283,24 +295,26 @@ namespace MazeGame.Server
                 isPerformed = true;
             }
 
+            connection.CreatedRoomGuid = null;
+
             return isPerformed;
         }
 
-        public Task<(Guid? roomGuid, PlayerState playerState)> GetPlayerState (Guid playerGuid) =>
+        public Task<(Guid? createdRoomGuid, Guid? connectToRoomGuid, PlayerState playerState)> GetPlayerState (Guid playerGuid) =>
             IsConnectionGuidExist(playerGuid, out var connection)
-                ? Task.FromResult((connection!.CurrentGameRoomGuid, connection!.State))
-                : Task.FromException<(Guid? roomGuid, PlayerState playerState)>(new PlayerGuidNotFoundException());
+                ? Task.FromResult((connection!.CreatedRoomGuid, connection!.CurrentGameRoomGuid, connection!.State))
+                : Task.FromException<(Guid? createdRoomGuid, Guid? connectToRoomGuid, PlayerState playerState)>(new PlayerGuidNotFoundException());
 
         public List<LobbyInfo> GetRoomList () => Rooms.Select(r => (r.Value.GetInfo())).ToList();
 
 
-        public async Task KickPlayer (Guid playerGuid, Guid room, string targetLogin)
+        public async Task KickPlayer (Guid playerGuid, Guid roomGuid, string targetLogin)
         {
             await _connectionsPoolLocker.WaitAsync();
             if (!IsConnectionGuidExist(playerGuid, out var connection))
                 throw new PlayerGuidNotFoundException();
 
-            if (!connection!.CanKick(playerGuid))
+            if (!connection!.CanKick(roomGuid))
                 throw new NotYourRoomException();
 
             LoginToGuid.TryGetValue(targetLogin, out var target);
@@ -320,7 +334,9 @@ namespace MazeGame.Server
             if (!Rooms.TryGetValue(roomGuid, out var gameRoom))
                 throw new RoomNotExistException();
 
-            await gameRoom.StartGame();
+            var task = gameRoom.StartGame(()=>DeleteRoom(playerGuid,roomGuid),guid=>DisconnectFromRoom(guid,false));
+            if (task.Exception != null)
+                throw task.Exception.InnerException;
         }
 
         public async Task SetPlayerDirection (Guid playerGuid, Guid roomGuid, Direction direction, uint turn)

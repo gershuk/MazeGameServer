@@ -100,12 +100,17 @@ namespace MazeGame.Server
             }
         };
 
-        private PlayerStateAnswer CreatePlayerStateAnswer (Task<(System.Guid? roomGuid, PlayerState playerState)> task) => new PlayerStateAnswer
+        private PlayerStateAnswer CreatePlayerStateAnswer (Task<(System.Guid? createdRoomGuid, System.Guid? connectToRoomGuid, PlayerState playerState)> task) => new PlayerStateAnswer
         {
             RequestingGuidStatus = task.Exception?.InnerException is PlayerGuidNotFoundException ? RequestingGuidStatus.NotExist : RequestingGuidStatus.Exists,
-            RoomGuid = new()
+            CreatedRoomGuid = new()
             {
-                Guid_ = task.Exception == null ? task.Result.roomGuid?.ToString("D") : System.Guid.Empty.ToString("D")
+                Guid_ = task.Exception == null && task.Result.createdRoomGuid !=null ? task.Result.createdRoomGuid.Value.ToString("D") : System.Guid.Empty.ToString("D")
+            },
+
+            ConnectToRoomGuid = new()
+            {
+                Guid_ = task.Exception == null && task.Result.connectToRoomGuid != null ? task.Result.connectToRoomGuid.Value.ToString("D") : System.Guid.Empty.ToString("D")
             },
             PlayerState = task.Exception == null ?
             task.Result.playerState switch
@@ -163,7 +168,7 @@ namespace MazeGame.Server
                     NotYourRoomException => StartGameStatus.NotYourRoom,
                     RoomNotExistException => StartGameStatus.RoomNotFoundToStartGame,
                     GameAlreadyStartedException => StartGameStatus.GameAlreadyStarted,
-                    ThereIsNoPlayersInRoomException => StartGameStatus.NoPlayers,
+                    ThereIsNoPlayersOrBotsInRoomException => StartGameStatus.NoPlayers,
                     _ => throw task.Exception.InnerException,
                 }
             },
@@ -260,6 +265,8 @@ namespace MazeGame.Server
                                 MaxPlayerCount = info.MaxPlayerCount,
                                 Owner = info.OwnerName,
                                 MapGuid = new() { Guid_ = info.Guid.ToString("D") },
+                                TurnsCount = info.TurnsCount,
+                                TurnDeley = info.TurnDeley,
                             }
                         };
 
@@ -267,7 +274,7 @@ namespace MazeGame.Server
                             ans.Properties.PlayerNames.Add(playerName);
 
                         foreach (var botType in info.BotTypes)
-                            ans.Properties.PlayerNames.Add(botType);
+                            ans.Properties.BotTypes.Add(botType);
 
                         await responseStream.WriteAsync(ans);
                     }
@@ -307,7 +314,7 @@ namespace MazeGame.Server
                 await responseStream.WriteAsync(new RoomPropertiesAnswer()
                 {
                     RequestingGuidStatus = RequestingGuidStatus.Exists,
-                    Propertiesstatus = RoomPropertiesAnswerStatus.ChangeRoom
+                    Propertiesstatus = RoomPropertiesAnswerStatus.ChangeRoomException
                 });
             }
             catch (PlayerAlreadyConnectedToThisRoomException)
@@ -324,6 +331,14 @@ namespace MazeGame.Server
                 {
                     RequestingGuidStatus = RequestingGuidStatus.Exists,
                     Propertiesstatus = RoomPropertiesAnswerStatus.CantConnectToStarted
+                });
+            }
+            catch (PlayerLimitException)
+            {
+                await responseStream.WriteAsync(new RoomPropertiesAnswer()
+                {
+                    RequestingGuidStatus = RequestingGuidStatus.Exists,
+                    Propertiesstatus = RoomPropertiesAnswerStatus.RoomFull,
                 });
             }
             catch (InvalidOperationException) { /*ignore*/}
@@ -354,7 +369,7 @@ namespace MazeGame.Server
             RoomListAnswer ans = new();
             foreach (var roomInfo in _gameServerModel.GetRoomList())
             {
-                ans.RoomProperties.Add(new RoomProperties()
+                RoomProperties roomProperties = new()
                 {
                     Guid = new() { Guid_ = roomInfo.Guid.ToString("D") },
                     Name = roomInfo.RoomName,
@@ -371,8 +386,18 @@ namespace MazeGame.Server
                     HasPassword = roomInfo.HasPassword,
                     MaxPlayerCount = roomInfo.MaxPlayerCount,
                     Owner = roomInfo.OwnerName,
-                    MapGuid = new() { Guid_ = roomInfo.Guid.ToString("D") },
-                });
+                    MapGuid = new() { Guid_ = roomInfo.MapGuid.ToString("D") },
+                    TurnsCount = roomInfo.TurnsCount,
+                    TurnDeley = roomInfo.TurnDeley,
+                };
+
+                foreach (var playerName in roomInfo.PlayerNames)
+                    roomProperties.PlayerNames.Add(playerName);
+
+                foreach (var botType in roomInfo.BotTypes)
+                    roomProperties.BotTypes.Add(botType);
+
+                ans.RoomProperties.Add(roomProperties);
             }
 
             return Task.FromResult(ans);
@@ -406,12 +431,13 @@ namespace MazeGame.Server
                             Pos = new() { X = info.Position.X, Y = info.Position.Y },
                             Status = info.AvatarGameState switch
                             {
-                                AvatarGameState.Running => SpectateGameStatus.AvatarRunnig,
-                                AvatarGameState.Win => SpectateGameStatus.AvatarWin,
-                                AvatarGameState.Lose => SpectateGameStatus.AvatarLose,
+                                AvatarGameState.Running => AvatarState.AvatarRunnig,
+                                AvatarGameState.Win => AvatarState.AvatarWin,
+                                AvatarGameState.Lose => AvatarState.AvatarLose,
                                 _ => throw new NotImplementedException(),
                             },
                             Turn = info.Turn,
+                            MapSize = new() { X = info.MapSize.X, Y = info.MapSize.Y }
                         };
 
                         spectateData.PlayerInfos.AddRange(info.Players.Select(p => new PlayerInfo() { Name = p.name, Pos = new() { X = p.position.X, Y = p.position.Y } }));

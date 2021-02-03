@@ -53,7 +53,8 @@ message PlayerStateAnswer
 {
 	RequestingGuidStatus requestingGuidStatus = 1;
 	PlayerState playerState = 2;
-	Guid roomGuid = 3;
+	Guid createdRoomGuid = 3;
+	Guid connectToRoomGuid = 4;
 }
 
 message Guid 
@@ -134,7 +135,7 @@ enum RoomPropertiesAnswerStatus
 {
 	 PlayerGuidNotFound = 0;
      RoomNotExist = 1;
-     ChangeRoom = 2;
+     ChangeRoomException = 2;
      PlayerAlreadyConnectedToThisRoom =3;
      OperationCanceled =4;   
 	 CantConnectToStarted =5;
@@ -282,9 +283,13 @@ enum SpectateGameStatus
 	PlayerNotFoundToSpectete =  3;
 	WrongRoomToSpectate = 4;
 	PlayerAlreadySpectedThisRoom = 5;
-	AvatarRunnig = 6;
-	AvatarWin = 7;
-	AvatarLose = 8;
+}
+
+enum AvatarState
+{
+	AvatarRunnig = 0;
+	AvatarWin = 1;
+	AvatarLose = 2;
 }
 
 enum BlockType 
@@ -319,7 +324,8 @@ message SpectateData
 	repeated PlayerInfo playerInfos = 2;
 	Vec2Int pos = 3;
 	uint32 turn = 4;
-	SpectateGameStatus status = 5;
+	AvatarState status = 5;
+	Vec2Int mapSize = 6;
 }
 
 message SpectateGameAnswer

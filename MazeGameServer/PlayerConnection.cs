@@ -32,7 +32,6 @@ namespace MazeGame.Server
                         throw new RoomAlreadyCreatedException();
         }
 
-
         public PlayerConnection (string login, string socketInfo)
         {
             Login = login;
@@ -48,7 +47,7 @@ namespace MazeGame.Server
             switch (State)
             {
                 case PlayerState.Authorized:
-                    State = PlayerState.InGame;
+                    State = PlayerState.InLobby;
                     CurrentGameRoomGuid = roomGuid;
                     break;
                 case PlayerState.InLobby or PlayerState.InGame:

@@ -8,15 +8,9 @@ namespace MazeGame.Server
 {
     public abstract class Bot
     {
-        public Vector2Int Position { get; private set; }
-        public abstract void Init (GameMap map, Vector2Int position);
+        public Vector2Int Position { get; protected set; }
+        public abstract void Init (GameMap map, Vector2Int startPosition, Vector2Int endPoint);
         public abstract bool Move ();
-    }
-
-    public class SimpleBot : Bot
-    {
-        public override void Init (GameMap map, Vector2Int position) => throw new NotImplementedException();
-        public override bool Move () => throw new NotImplementedException();
     }
 
     public class BotFactory

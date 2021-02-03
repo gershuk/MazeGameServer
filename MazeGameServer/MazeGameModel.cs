@@ -20,7 +20,7 @@ namespace MazeGame.Server
         Lose = 2,
     }
 
-    public record GameInfo (List<(Vector2Int position, BlockType type)> Blocks, List<(Vector2Int position, string name)> Players, Vector2Int Position, AvatarGameState AvatarGameState, uint Turn);
+    public record GameInfo (List<(Vector2Int position, BlockType type)> Blocks, List<(Vector2Int position, string name)> Players, Vector2Int Position, AvatarGameState AvatarGameState, uint Turn, Vector2Int MapSize);
 
     public enum Direction
     {
@@ -84,14 +84,14 @@ namespace MazeGame.Server
                         VisibleBlocks[pos.X, pos.Y] = map.Walls[pos.X, pos.Y] ? BlockType.Wall : BlockType.Empty;
                         if (pos == exitCoord)
                             VisibleBlocks[pos.X, pos.Y] = BlockType.Exit;
-                        ans.Add((pos - StartPosition, VisibleBlocks[pos.X, pos.Y]));
+                        ans.Add((pos, VisibleBlocks[pos.X, pos.Y]));
                     }
                 }
             }
             _lastVisionData = ans;
         }
 
-        public async Task<AvatarGameState> SendData (IImmutableDictionary<Guid, PlayerAvatar> players, IImmutableList<(string name, Bot botAvatar)> bots, GameMap map, 
+        public async Task<AvatarGameState> SendData (IImmutableDictionary<Guid, PlayerAvatar> players, IImmutableList<(string name, Bot botAvatar)> bots, GameMap map,
             Vector2Int exitCoord, uint turn, bool isFull = false)
         {
             SetVision(map, exitCoord);
@@ -108,7 +108,7 @@ namespace MazeGame.Server
                     enemys.Add((bot.botAvatar.Position, "Bot"));
             }
 
-            if (turn == _lastTurnNumber)
+            if (turn-1 == _lastTurnNumber)
                 _avatarGameState = AvatarGameState.Lose;
             if (exitCoord == Position)
                 _avatarGameState = AvatarGameState.Win;
@@ -120,13 +120,13 @@ namespace MazeGame.Server
                 {
                     for (var j = 0; j < map.Size.Y; ++j)
                     {
-                        _lastVisionData.Add((new Vector2Int(i, j) - StartPosition, VisibleBlocks[i, j]));
+                        _lastVisionData.Add((new Vector2Int(i, j), VisibleBlocks[i, j]));
                     }
                 }
             }
 
 
-            await InfoBuffer.AsyncWrite(new GameInfo(_lastVisionData, enemys, Position - StartPosition, _avatarGameState, turn));
+            await InfoBuffer.AsyncWrite(new GameInfo(_lastVisionData, enemys, Position, _avatarGameState, turn, map.Size));
             return _avatarGameState;
         }
 
@@ -170,12 +170,14 @@ namespace MazeGame.Server
         private readonly CancellationTokenSource _tokenSource;
         private readonly CancellationToken _token;
         private uint _currentTurn;
+        private Action<Guid> _deletePlayer;
+        private Action _deleteRoom;
 
         public uint MaxTurns { get; init; }
 
         ~MazeGameModel () => Dispose(false);
 
-        public MazeGameModel ([NotNull] GameMap map, [NotNull] List<(Guid guid, string login)> players, [NotNull] List<(string name,Bot botAvatar)> bots, uint turns = 100, uint turnTime = 5000)
+        public MazeGameModel (Action DeleteRoom, Action<Guid> DeletePlayer, [NotNull] GameMap map, [NotNull] List<(Guid guid, string login)> players, [NotNull] List<(string name, Bot botAvatar)> bots, uint turns = 100, uint turnTime = 5000)
         {
             _disposed = false;
             _tokenSource = new CancellationTokenSource();
@@ -190,6 +192,8 @@ namespace MazeGame.Server
             _exitCoords = _map.Exits[rand.Next() % _map.Exits.Length];
             MaxTurns = turns;
             _currentTurn = 0;
+            _deletePlayer = DeletePlayer;
+            _deleteRoom = DeleteRoom;
 
             var positions = map.Spawns.OrderBy(x => rand.Next()).ToList();
             var i = 0;
@@ -203,7 +207,8 @@ namespace MazeGame.Server
 
             foreach (var bot in bots)
             {
-                bot.botAvatar.Init(_map, positions[i]);
+                bot.botAvatar.Init(_map, positions[i],_exitCoords);
+                ++i;
             }
         }
 
@@ -211,7 +216,9 @@ namespace MazeGame.Server
 
         public async Task GameLoop ()
         {
-            for (var i = 0; i < MaxTurns; ++i)
+            
+            await Task.Delay((int) _turnTime);
+            for (var i = 1; i <= MaxTurns; ++i)
             {
                 _currentTurn = (uint) i;
                 foreach (var player in _players)
@@ -254,7 +261,7 @@ namespace MazeGame.Server
                 {
                     List<(Vector2Int pos, string login)> players = _players.Select(p => (p.Value.Position, p.Value.Login)).ToList();
                     players.AddRange(_bots.Select(b => (b.botAvatar.Position, b.name)));
-                    var gameInfo = new GameInfo(new(), players, new(0, 0), AvatarGameState.Running, _currentTurn);
+                    var gameInfo = new GameInfo(new(), players, new(0, 0), AvatarGameState.Running, _currentTurn, _map.Size);
                     await buffer.Value.AsyncWrite(gameInfo);
                 }
 
@@ -264,10 +271,13 @@ namespace MazeGame.Server
                     _bots.Remove(bot);
                 foreach (var guid in endedPlayerGuid)
                 {
-                    _players[guid].Dispose();
-                    _players.Remove(guid, out _);
+                    _deletePlayer(guid);
                 }
+
+                if (_bots.Count + _players.Count == 0)
+                    break;
             }
+            _deleteRoom();
         }
 
         public void SetPlayerDirection (Guid guid, Direction direction, uint turn)
@@ -284,8 +294,7 @@ namespace MazeGame.Server
         {
             foreach (var player in _players)
             {
-                player.Value.Dispose();
-                _players.Remove(player.Key, out _);
+                _deletePlayer(player.Key);
             }
 
             foreach (var spectator in _spectators)
@@ -295,6 +304,7 @@ namespace MazeGame.Server
             }
 
             _bots.Clear();
+            _deleteRoom();
         }
 
         public async Task<AsyncBuffer<GameInfo>> GetPlayerData (Guid guid)
@@ -310,6 +320,7 @@ namespace MazeGame.Server
         {
             if (!_players.Remove(guid, out var playerAvatar))
                 throw new PlayerNotFoundInGameExeception();
+            playerAvatar.Dispose();
         }
 
         public async Task<AsyncBuffer<GameInfo>> AddSpectator (Guid guid, bool isForced)
@@ -345,7 +356,7 @@ namespace MazeGame.Server
             players.AddRange(_bots.Select(b => (b.botAvatar.Position, "Bot")));
 
 
-            await _spectators[guid].AsyncWrite(new(blocks, players, new(0, 0), AvatarGameState.Running, _currentTurn));
+            await _spectators[guid].AsyncWrite(new(blocks, players, new(0, 0), AvatarGameState.Running, _currentTurn, _map.Size));
 
             return _spectators[guid];
         }

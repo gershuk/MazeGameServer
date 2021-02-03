@@ -65,7 +65,7 @@ namespace MazeGame.Server
             var exitCount = Convert.ToInt32(fileReader.ReadLine());
             if (exitCount > w * h / 4)
                 throw new UnplayableConfigException();
-            var exits = new Vector2Int[spawnCount];
+            var exits = new Vector2Int[exitCount];
 
             if (exitCount + spawnCount > w * h)
                 throw new UnplayableConfigException();
@@ -79,7 +79,9 @@ namespace MazeGame.Server
                     throw new UnplayableConfigException();
             }
 
-            return new GameMap(name, maxPlayerCount, new Vector2Int() { X = w, Y = h }, walls, spawns, exits, Guid.NewGuid());
+            var guid = new Guid(fileReader.ReadLine());
+
+            return new GameMap(name, maxPlayerCount, new Vector2Int() { X = w, Y = h }, walls, spawns, exits, guid);
         }
     }
 
