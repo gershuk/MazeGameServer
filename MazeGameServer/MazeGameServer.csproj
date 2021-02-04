@@ -16,4 +16,20 @@
     <ProjectReference Include="..\GrpcDescription\GrpcDescription.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Maps\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Maps\BigMaze.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Maps\TestMap1.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Maps\TestMap2.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

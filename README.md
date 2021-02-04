@@ -9,8 +9,7 @@
    ```Console  
      dotnet build -c Release -o Build 
     ```  
-4. Скопировать папку Maps в Build
-5. В MS SQL создать базу данных "usersdb". Создать в ней таблицу "UsersData" 
+4. В MS SQL создать базу данных "usersdb". Создать в ней таблицу "UsersData" 
 
 | Primary Key | Column Name        | Data Type          | Allow Nulls |
 |-----| ------------- |:-------------:| -----:|

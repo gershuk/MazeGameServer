@@ -15,10 +15,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E7C0D968-954E-4953-98BA-5E06AF08E4DE}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
-		Maps\BigMaze.txt = Maps\BigMaze.txt
 		README.md = README.md
-		Maps\TestMap1.txt = Maps\TestMap1.txt
-		Maps\TestMap2.txt = Maps\TestMap2.txt
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncExtensions", "AsyncExtensions\AsyncExtensions.csproj", "{B7096F15-0926-45EE-B642-B2682E5AB5F3}"
