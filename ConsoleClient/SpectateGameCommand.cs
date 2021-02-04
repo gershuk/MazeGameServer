@@ -87,7 +87,7 @@ namespace MazeGame.Client
                                             blockTypes[block.Pos.X, block.Pos.Y] = block.BlockType;
                                         }
                                         isSetSize = true;
-                                        Console.SetWindowSize(size.X, size.Y);
+                                        //Console.SetWindowSize(size.X, size.Y);
                                     }
                                 }
 

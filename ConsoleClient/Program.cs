@@ -38,6 +38,7 @@ namespace MazeGame.Client
             client.AddCommand<SpectateGameCommand>("SpectateGame");
             client.AddCommand<KickCommand>("Kick");
             client.AddCommand<DeleteRoom>("DeleteRoom");
+            client.AddCommand<StoppSpectateCommand>("StopSpectate");
             client.AddCommand<UpCommand>("W");
             client.AddCommand<DownCommand>("S");
             client.AddCommand<LeftCommand>("A");
