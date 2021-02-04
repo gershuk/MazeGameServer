@@ -20,7 +20,7 @@ namespace MazeGame.Server
     }
 
     public record LobbyInfo (
-        Guid Guid,
+        Guid LobbyGuid,
         RoomStatus RoomStatus,
         string RoomName,
         string Description,

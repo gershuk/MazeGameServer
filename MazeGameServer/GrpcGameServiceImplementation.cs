@@ -91,6 +91,7 @@ namespace MazeGame.Server
                     ThereAreMoreBotsThanEmptySlots => RoomTableModificationStatus.LimitExceededForBotsForThisMap,
                     MaxPlayerMoreThenSpawnerException => RoomTableModificationStatus.MaxPlayerMoreThenSpawnerException,
                     MapNotFoundException => RoomTableModificationStatus.WrongMapGuid,
+                    WrongBotTypeException => RoomTableModificationStatus.WrongBotsType,
                     _ => throw task.Exception.InnerException,
                 }
             },
@@ -249,7 +250,7 @@ namespace MazeGame.Server
                             Propertiesstatus = RoomPropertiesAnswerStatus.Successfull,
                             Properties = new RoomProperties()
                             {
-                                Guid = new() { Guid_ = info.Guid.ToString("D") },
+                                Guid = new() { Guid_ = info.LobbyGuid.ToString("D") },
                                 Name = info.RoomName,
                                 Description = info.Description,
                                 Status = info.RoomStatus switch
@@ -264,7 +265,7 @@ namespace MazeGame.Server
                                 HasPassword = info.HasPassword,
                                 MaxPlayerCount = info.MaxPlayerCount,
                                 Owner = info.OwnerName,
-                                MapGuid = new() { Guid_ = info.Guid.ToString("D") },
+                                MapGuid = new() { Guid_ = info.MapGuid.ToString("D") },
                                 TurnsCount = info.TurnsCount,
                                 TurnDeley = info.TurnDeley,
                             }
@@ -371,7 +372,7 @@ namespace MazeGame.Server
             {
                 RoomProperties roomProperties = new()
                 {
-                    Guid = new() { Guid_ = roomInfo.Guid.ToString("D") },
+                    Guid = new() { Guid_ = roomInfo.LobbyGuid.ToString("D") },
                     Name = roomInfo.RoomName,
                     Description = roomInfo.Description,
                     Status = roomInfo.RoomStatus switch

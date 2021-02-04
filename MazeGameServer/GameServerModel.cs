@@ -86,7 +86,7 @@ namespace MazeGame.Server
             PlayerConnections = new();
             LoginToGuid = new();
 
-            BotFactory = new BotFactory(("AStarBot", () => new AStrarBot()));
+            BotFactory = new BotFactory(("AStarBot", () => new AStrarBot()), ("RandomBot", () => new RandomBot()));
         }
 
         private bool IsConnectionGuidExist (Guid guid, out PlayerConnection? connection) => PlayerConnections.TryGetValue(guid, out connection);
@@ -267,8 +267,16 @@ namespace MazeGame.Server
 
             List<(string name, Bot bot)> bots = new(botTypes.Length);
 
-            foreach (var botType in botTypes)
-                bots.Add((botType, BotFactory.CreatBot(botType)));
+            try
+            {
+                foreach (var botType in botTypes)
+                    bots.Add((botType, BotFactory.CreatBot(botType)));
+            }
+            catch
+            {
+                throw new WrongBotTypeException();
+            }
+
 
             var roomGuid = Guid.NewGuid();
             GameRoom room = new(name, description, map, hasPassword ? password : null, maxPlayerCount, bots, playerGuid, (guid) => PlayerConnections[guid].Login, roomGuid, turnsCount, turnsDeley);

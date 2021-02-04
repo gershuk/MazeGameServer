@@ -48,6 +48,7 @@ namespace MazeGame.Client
 
             while (await stream.ResponseStream.MoveNext(token))
             {
+                Console.Clear();
                 var result = stream.ResponseStream.Current;
                 switch (result.SpectateGameStatus)
                 {
@@ -68,6 +69,7 @@ namespace MazeGame.Client
                                         blockTypes = new BlockType[result.SpectateData.MapSize.X, result.SpectateData.MapSize.Y];
                                         size = new() { X = result.SpectateData.MapSize.X, Y = result.SpectateData.MapSize.Y };
                                         isSetSize = true;
+                                        //Console.SetWindowSize(size.X, size.Y);
                                     }
                                     foreach (var block in result.SpectateData.BlockInfos)
                                     {
@@ -85,6 +87,7 @@ namespace MazeGame.Client
                                             blockTypes[block.Pos.X, block.Pos.Y] = block.BlockType;
                                         }
                                         isSetSize = true;
+                                        Console.SetWindowSize(size.X, size.Y);
                                     }
                                 }
 
@@ -120,8 +123,11 @@ namespace MazeGame.Client
                                     Console.Write("E");
                                 }
 
-                                Console.SetCursorPosition(result.SpectateData.Pos.X, result.SpectateData.Pos.Y);
-                                Console.WriteLine("P");
+                                if (isPlayer)
+                                {
+                                    Console.SetCursorPosition(result.SpectateData.Pos.X, result.SpectateData.Pos.Y);
+                                    Console.WriteLine("P");
+                                }
 
                                 Console.SetCursorPosition(0, size.Y);
                                 Console.WriteLine($"Turn = {result.SpectateData.Turn}");

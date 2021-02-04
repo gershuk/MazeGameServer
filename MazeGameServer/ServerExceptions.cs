@@ -50,4 +50,5 @@ namespace MazeGame.Server
     public class TargetGuidNotFoundException : Exception { };
     public class GameAlreadyStartedException : Exception { };
     public class ThereIsNoPlayersOrBotsInRoomException : Exception { };
+    public class WrongBotTypeException : Exception { };
 }

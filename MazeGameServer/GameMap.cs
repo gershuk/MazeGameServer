@@ -37,7 +37,7 @@ namespace MazeGame.Server
             var wh = fileReader.ReadLine().Split(' ');
             var w = Convert.ToInt32(wh[0]);
             var h = Convert.ToInt32(wh[1]);
-            var walls = new bool[h, w];
+            var walls = new bool[w, h];
             for (var i = 0; i < h; ++i)
             {
                 var str = fileReader.ReadLine();
